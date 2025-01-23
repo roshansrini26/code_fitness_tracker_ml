@@ -1,3 +1,3 @@
-## Data Science Project Template
+## Fitness tracker End to End Machine learning project
 
-You can use this template to structure your Python data science projects. It is based on [Cookie Cutter Data Science](https://drivendata.github.io/cookiecutter-data-science/).
+Template link - (https://drivendata.github.io/cookiecutter-data-science/).
