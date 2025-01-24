@@ -3,7 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from DataTransformation import LowPassFilter, PrincipalComponentAnalysis
 from TemporalAbstraction import NumericalAbstraction
-
+from FrequencyAbstraction import FourierTransformation
+from sklearn.cluster import KMeans
 
 # --------------------------------------------------------------
 # Load data
@@ -137,17 +138,88 @@ subset[["gyro_y","gyro_y_temp_mean_ws_5","gyro_y_temp_std_ws_5"]].plot()
 # Frequency features
 # --------------------------------------------------------------
 
+df_freq = df_temporal.copy().reset_index()
+FreqAbs = FourierTransformation()
+
+fs = int(1000/200) # 5 instances per second
+ws = int(2800/200) #2800 milli seconds is avg time
+
+df_freq = FreqAbs.abstract_frequency(df_freq, ["acc_y"],ws,fs )
+
+subset = df_freq[df_freq["set"]==45]
+subset[["acc_y"]].plot()
+subset[["acc_y_max_freq","acc_y_freq_weighted","acc_y_pse","acc_y_freq_1.429_Hz_ws_14","acc_y_freq_2.5_Hz_ws_14"]].plot()
+
+df_freq_list = []  #Loop over each set 
+for s in df_freq["set"].unique():
+    print(f"Applying frequency abstraction on set {s}")
+    subset = df_freq[df_freq["set"]==s].reset_index(drop=True).copy()
+    subset = FreqAbs.abstract_frequency(subset, predictor_columns, ws, fs)
+    df_freq_list.append(subset)
+
+df_freq = pd.concat(df_freq_list).set_index("epoch (ms)", drop=True)
+
 
 # --------------------------------------------------------------
 # Dealing with overlapping windows
 # --------------------------------------------------------------
 
+df_freq = df_freq.dropna()
+df_freq = df_freq.iloc[::2]  #every 2nd row
 
 # --------------------------------------------------------------
 # Clustering
 # --------------------------------------------------------------
 
+df_cluster = df_freq.copy()
 
+cluster_col = ["acc_x","acc_y","acc_z"]
+k_val = range(2,10)
+inertia = []
+
+for k in k_val:    #to find the optimal K value using elbow
+    subset = df_cluster[cluster_col]
+    kmeans = KMeans(n_clusters=k,n_init=20,random_state=0)
+    cluster_label = kmeans.fit_predict(subset)
+    inertia.append(kmeans.inertia_)
+
+plt.figure(figsize=(10,10))
+plt.plot(k_val,inertia)
+plt.xlabel("K")
+plt.ylabel("Inertia - Sum of squared distances")
+plt.show()
+
+kmeans = KMeans(n_clusters=5,n_init=20,random_state=0)
+subset = df_cluster[cluster_col]
+df_cluster["cluster"] = kmeans.fit_predict(subset)
+
+#Plot clusters
+fig = plt.figure(figsize=(15,15))
+ax = fig.add_subplot(projection='3d')
+for c in df_cluster["cluster"].unique():
+    subset = df_cluster[df_cluster["cluster"]==c]
+    ax.scatter(subset["acc_x"],subset["acc_y"],subset["acc_z"],label=f"Cluster {c}")
+
+ax.set_xlabel("X_axis")
+ax.set_ylabel("Y_axis")
+ax.set_zlabel("Z_axis")
+plt.legend()
+plt.show()
+
+#plot accelerometer data to compare
+fig = plt.figure(figsize=(15,15))
+ax = fig.add_subplot(projection='3d')
+for l in df_cluster["label"].unique():
+    subset = df_cluster[df_cluster["label"]==l]
+    ax.scatter(subset["acc_x"],subset["acc_y"],subset["acc_z"],label=f"Label {l}")
+
+ax.set_xlabel("X_axis")
+ax.set_ylabel("Y_axis")
+ax.set_zlabel("Z_axis")
+plt.legend()
+plt.show()
 # --------------------------------------------------------------
 # Export dataset
 # --------------------------------------------------------------
+
+df_cluster.to_pickle("../../data/interim/data_featured.pkl")
