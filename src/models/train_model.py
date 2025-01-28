@@ -422,3 +422,18 @@ plt.ylabel("True label")
 plt.xlabel("Predicted label")
 plt.grid(False)
 plt.show()
+
+
+#Save the model
+import os
+import pickle
+
+desired_location = "../../src/models/"  
+model_filename = "best_nn_model.pkl"
+full_path = os.path.join(desired_location, model_filename)
+
+# Save the trained model
+with open(full_path, "wb") as file:
+    pickle.dump(learner, file)
+
+print(f"Model saved to {full_path}")
